@@ -27,6 +27,7 @@ public:
 	virtual void PostActorCreated() override;
 	virtual void PostLoad() override;
 	virtual void CreateSquare();
+	//declare ProceduralMeshComponent pointer as mesh for MyActor.
 private:
 	UPROPERTY(VisibleAnywhere)
 	UProceduralMeshComponent* mesh;

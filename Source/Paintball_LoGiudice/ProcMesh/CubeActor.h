@@ -24,6 +24,7 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	//declare PostActorCreated, PostLoad, GenerateBoxMesh, and CreateBoxMesh functions.
 	virtual void PostActorCreated() override;
 
 	virtual void PostLoad() override;
@@ -31,6 +32,7 @@ public:
 	virtual void GenerateBoxMesh();
 	virtual void CreateBoxMesh(FVector BoxRadius, TArray <FVector> & Vertices, TArray <int32> & Triangles, TArray <FVector> & Normals, TArray <FVector2D> & UVs, TArray <FProcMeshTangent> & Tangents, TArray <FColor> & Colors);
 
+	//declare ProceduralMeshComponent pointer as mesh for Cube Actor.
 private:
 	UPROPERTY(VisibleAnywhere)
 		UProceduralMeshComponent * mesh;

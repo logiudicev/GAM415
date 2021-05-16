@@ -8,7 +8,7 @@ AMyActor::AMyActor()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
+	//initialize mesh and rootcomponent as mesh
 	mesh = CreateDefaultSubobject  <UProceduralMeshComponent>(TEXT("GeneratedMesh"));
 	RootComponent = mesh;
 
@@ -39,7 +39,7 @@ void  AMyActor::PostLoad()
 	Super::PostLoad();
 	CreateSquare();
 }
-
+//Function to create square. Called in PostLoad and PostActorCreated.
 void AMyActor::CreateSquare()
 {
 	TArray <FVector> Vertices;

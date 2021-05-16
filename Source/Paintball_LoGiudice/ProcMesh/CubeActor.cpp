@@ -1,5 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+//Procedural mesh is like runtime however, fall less efficient.
+
 #include "CubeActor.h"
 
 
@@ -8,6 +10,7 @@ ACubeActor::ACubeActor()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	//initialize mesh and rootcomponent as mesh
 	mesh = CreateDefaultSubobject  <UProceduralMeshComponent>(TEXT("GeneratedMesh"));
 	RootComponent = mesh;
 }
@@ -25,19 +28,19 @@ void ACubeActor::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 }
-
+//inherit PostActorCreated functions from parent, run generated box mesh function
 void ACubeActor::PostActorCreated()
 {
 	Super::PostActorCreated();
 	GenerateBoxMesh();
 }
-
+//inherit PostLoad functions from parent, run generated box mesh function
 void ACubeActor::PostLoad()
 {
 	Super::PostLoad();
 	GenerateBoxMesh();
 }
-
+//generate box mesh function, called in other functions like PostLoad and PostActorCreated
 void ACubeActor::GenerateBoxMesh()
 {
 	TArray < FVector > Vertices;
@@ -50,10 +53,10 @@ void ACubeActor::GenerateBoxMesh()
 	mesh->CreateMeshSection(0, Vertices, Triangles, Normals, TextureCoordinates, Colors, Tangents, true);
 
 }
-
+//create box mesh component boilerplate code function
 void ACubeActor::CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FProcMeshTangent>& Tangents, TArray<FColor>& Colors)
 {
-	FVector BoxVerts[8];
+	FVector BoxVerts[8];//Change to 8 (was 4, broke code)
 	BoxVerts[0] = FVector(-BoxRadius.X, BoxRadius.Y, BoxRadius.Z);
 	BoxVerts[1] = FVector(BoxRadius.X, BoxRadius.Y, BoxRadius.Z);
 	BoxVerts[2] = FVector(BoxRadius.X, -BoxRadius.Y, BoxRadius.Z);
@@ -108,6 +111,53 @@ void ACubeActor::CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TAr
 	Triangles.Add(8);
 	Triangles.Add(9);
 	Triangles.Add(11);
+	Triangles.Add(9);
+	Triangles.Add(10);
+	Triangles.Add(11);
+	Normals[8] = Normals[9] = Normals[10] = Normals[11] = FVector(0, 1, 0);
+	Tangents[8] = Tangents[9] = Tangents[10] = Tangents[11] = FProcMeshTangent(-1.f, 0.f, 0.f);
+	Vertices[12] = BoxVerts[6];
+	Vertices[13] = BoxVerts[2];
+	Vertices[14] = BoxVerts[1];
+	Vertices[15] = BoxVerts[5];
+	Triangles.Add(12);
+	Triangles.Add(13);
+	Triangles.Add(15);
+	Triangles.Add(13);
+	Triangles.Add(14);
+	Triangles.Add(15);
+	Normals[12] = Normals[13] = Normals[14] = Normals[15] = FVector(1, 0, 0);
+	Tangents[12] = Tangents[13] = Tangents[14] = Tangents[15] = FProcMeshTangent(0.f, 1.f, 0.f);
+	Vertices[16] = BoxVerts[7];
+	Vertices[17] = BoxVerts[3];
+	Vertices[18] = BoxVerts[2];
+	Vertices[19] = BoxVerts[6];
+	Triangles.Add(16);
+	Triangles.Add(17);
+	Triangles.Add(19);
+	Triangles.Add(17);
+	Triangles.Add(18);
+	Triangles.Add(19);
+	Normals[16] = Normals[17] = Normals[18] = Normals[19] = FVector(0, -1, 0);
+	Tangents[16] = Tangents[17] = Tangents[18] = Tangents[19] = FProcMeshTangent(1.f, 0.f, 0.f);
+	Vertices[20] = BoxVerts[7];
+	Vertices[21] = BoxVerts[6];
+	Vertices[22] = BoxVerts[5];
+	Vertices[23] = BoxVerts[4];
+	Triangles.Add(20);
+	Triangles.Add(21);
+	Triangles.Add(23);
+	Triangles.Add(21);
+	Triangles.Add(22);
+	Triangles.Add(23);
+	Normals[20] = Normals[21] = Normals[22] = Normals[23] = FVector(0, 0, -1);
+	Tangents[20] = Tangents[21] = Tangents[22] = Tangents[23] = FProcMeshTangent(0.f, 1.f, 0.f); // UVs 
+	UVs.Reset();
+	UVs.AddUninitialized(NumVerts);
+	UVs[0] = UVs[4] = UVs[8] = UVs[12] = UVs[16] = UVs[20] = FVector2D(0.f, 0.f);
+	UVs[1] = UVs[5] = UVs[9] = UVs[13] = UVs[17] = UVs[21] = FVector2D(0.f, 1.f);
+	UVs[2] = UVs[6] = UVs[10] = UVs[14] = UVs[18] = UVs[22] = FVector2D(1.f, 1.f);
+	UVs[3] = UVs[7] = UVs[11] = UVs[15] = UVs[19] = UVs[23] = FVector2D(1.f, 0.f);
 
 }
 

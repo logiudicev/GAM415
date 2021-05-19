@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Fog/FogActor.h"
 #include "Paintball_LoGiudiceCharacter.generated.h"
 
 class UInputComponent;
@@ -52,6 +53,13 @@ protected:
 	virtual void BeginPlay();
 
 public:
+
+	//initialize FogActor* as m_fog
+	virtual void Tick(float DeltaTime) override;
+	UPROPERTY()
+		AFogActor* m_fog;
+
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;

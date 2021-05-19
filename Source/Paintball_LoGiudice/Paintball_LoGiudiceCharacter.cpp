@@ -18,6 +18,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
 APaintball_LoGiudiceCharacter::APaintball_LoGiudiceCharacter()
 {
+	//initialize tick event
+	PrimaryActorTick.bCanEverTick = true;
+
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
 
@@ -88,6 +91,9 @@ void APaintball_LoGiudiceCharacter::BeginPlay()
 	// Call the base class  
 	Super::BeginPlay();
 
+	//spawn m_fog (fog Actor)
+	m_fog = GetWorld()->SpawnActor<AFogActor>(AFogActor::StaticClass());
+
 	//Attach gun mesh component to Skeleton, doing it here because the skeleton is not yet created in the constructor
 	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 
@@ -102,6 +108,14 @@ void APaintball_LoGiudiceCharacter::BeginPlay()
 		VR_Gun->SetHiddenInGame(true, true);
 		Mesh1P->SetHiddenInGame(false, true);
 	}
+}
+
+//Add our tick event
+void APaintball_LoGiudiceCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	FVector Loc = this->GetActorLocation();
+	m_fog->revealSmoothCircle(FVector2D(Loc.X, Loc.Y), 100);
 }
 
 //////////////////////////////////////////////////////////////////////////

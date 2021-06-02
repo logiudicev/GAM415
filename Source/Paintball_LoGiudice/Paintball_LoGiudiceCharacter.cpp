@@ -10,6 +10,7 @@
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
+#include "Engine/TextureRenderTarget2D.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -23,6 +24,18 @@ APaintball_LoGiudiceCharacter::APaintball_LoGiudiceCharacter()
 
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
+
+	//establish default variable values for compute and pixel shaders
+	EndColorBuildup = 0;
+	EndColorBuildupDirection = 1;
+	PixelShaderTopLeftColor = FColor::Green;
+	ComputeShaderSimulationSpeed = 1.0;
+	ComputeShaderBlend = 0.5f;
+	ComputeShaderBlendScalar = 0;
+	TotalElapsedTime = 0;
+
+
+
 
 	// set our turn rates for input
 	BaseTurnRate = 45.f;
@@ -97,6 +110,12 @@ void APaintball_LoGiudiceCharacter::BeginPlay()
 	//Attach gun mesh component to Skeleton, doing it here because the skeleton is not yet created in the constructor
 	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 
+	//instantiate Pixelshading and Computeshading
+	PixelShading = new FPixelShaderUsageExample(PixelShaderTopLeftColor, GetWorld()->Scene->GetFeatureLevel());
+	ComputeShading = new FComputeShaderUsageExample(ComputeShaderSimulationSpeed, 1024, 1024, GetWorld()->Scene->GetFeatureLevel());
+
+
+
 	// Show or hide the two versions of the gun based on whether or not we're using motion controllers.
 	if (bUsingMotionControllers)
 	{
@@ -116,7 +135,54 @@ void APaintball_LoGiudiceCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	FVector Loc = this->GetActorLocation();
 	m_fog->revealSmoothCircle(FVector2D(Loc.X, Loc.Y), 100);
+
+
+	//tick event for Total Elapsed Time (+= deltatime)
+	TotalElapsedTime += DeltaTime;
+	if (PixelShading) {
+		EndColorBuildup = FMath::Clamp(EndColorBuildup + DeltaTime * EndColorBuildupDirection, 0.0f, 1.0f);
+		if (EndColorBuildup >= 1.0 || EndColorBuildup <= 0) {
+			EndColorBuildupDirection *= -1;
+		}
+		FTexture2DRHIRef InputTexture = NULL;
+		if (ComputeShading) {
+			ComputeShading->ExecuteComputeShader(TotalElapsedTime);
+			InputTexture = ComputeShading->GetTexture(); //This is the output texture from the compute shader that we will pass to the pixel shader. 
+		}
+		ComputeShaderBlend = FMath::Clamp(ComputeShaderBlend + ComputeShaderBlendScalar * DeltaTime, 0.0f, 1.0f);
+		PixelShading->ExecutePixelShader(RenderTarget, InputTexture, FColor(EndColorBuildup * 255, 0, 0, 255), ComputeShaderBlend);
+	}
 }
+
+//function to correspond with begin destroy
+void APaintball_LoGiudiceCharacter::BeginDestroy() {
+	Super::BeginDestroy();
+	if (PixelShading) {
+		delete PixelShading;
+	}
+	if (ComputeShading) {
+		delete ComputeShading;
+	}
+}
+
+//save pixelshading
+void APaintball_LoGiudiceCharacter::SavePixelShaderOutput() 
+{
+	PixelShading->Save();
+}
+//save computeshading
+void APaintball_LoGiudiceCharacter::SaveComputeShaderOutput() 
+{
+	ComputeShading->Save();
+}
+//instantiate computeshaderblendscalar from newscalar
+void APaintball_LoGiudiceCharacter::ModifyComputeShaderBlend(float NewScalar) 
+{
+	ComputeShaderBlendScalar = NewScalar;
+}
+
+
+
 
 //////////////////////////////////////////////////////////////////////////
 // Input
@@ -129,6 +195,12 @@ void APaintball_LoGiudiceCharacter::SetupPlayerInputComponent(class UInputCompon
 	// Bind jump events
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+
+	//ShaderPluginDemo Specific input mappings  
+	InputComponent->BindAction("SavePixelShaderOutput", IE_Pressed, this, &APaintball_LoGiudiceCharacter::SavePixelShaderOutput);
+	InputComponent->BindAction("SaveComputeShaderOutput", IE_Pressed, this, &APaintball_LoGiudiceCharacter::SaveComputeShaderOutput);
+	InputComponent->BindAxis("ComputeShaderBlend", this, &APaintball_LoGiudiceCharacter::ModifyComputeShaderBlend);
+
 
 	// Bind fire event
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &APaintball_LoGiudiceCharacter::OnFire);
@@ -154,32 +226,58 @@ void APaintball_LoGiudiceCharacter::SetupPlayerInputComponent(class UInputCompon
 void APaintball_LoGiudiceCharacter::OnFire()
 {
 	// try and fire a projectile
-	if (ProjectileClass != NULL)
-	{
-		UWorld* const World = GetWorld();
-		if (World != NULL)
-		{
-			if (bUsingMotionControllers)
-			{
-				const FRotator SpawnRotation = VR_MuzzleLocation->GetComponentRotation();
-				const FVector SpawnLocation = VR_MuzzleLocation->GetComponentLocation();
-				World->SpawnActor<APaintball_LoGiudiceProjectile>(ProjectileClass, SpawnLocation, SpawnRotation);
-			}
-			else
-			{
-				const FRotator SpawnRotation = GetControlRotation();
-				// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-				const FVector SpawnLocation = ((FP_MuzzleLocation != nullptr) ? FP_MuzzleLocation->GetComponentLocation() : GetActorLocation()) + SpawnRotation.RotateVector(GunOffset);
+	//if (ProjectileClass != NULL)
+	//{
+	//	UWorld* const World = GetWorld();
+	//	if (World != NULL)
+	//	{
+	//		if (bUsingMotionControllers)
+	//		{
+	//			const FRotator SpawnRotation = VR_MuzzleLocation->GetComponentRotation();
+	//			const FVector SpawnLocation = VR_MuzzleLocation->GetComponentLocation();
+	//			World->SpawnActor<APaintball_LoGiudiceProjectile>(ProjectileClass, SpawnLocation, SpawnRotation);
+	//		}
+	//		else
+	//		{
+	//			const FRotator SpawnRotation = GetControlRotation();
+	//			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
+	//			const FVector SpawnLocation = ((FP_MuzzleLocation != nullptr) ? FP_MuzzleLocation->GetComponentLocation() : GetActorLocation()) + SpawnRotation.RotateVector(GunOffset);
 
-				//Set Spawn Collision Handling Override
-				FActorSpawnParameters ActorSpawnParams;
-				ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+	//			//Set Spawn Collision Handling Override
+	//			FActorSpawnParameters ActorSpawnParams;
+	//			ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 
-				// spawn the projectile at the muzzle
-				World->SpawnActor<APaintball_LoGiudiceProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+	//			// spawn the projectile at the muzzle
+	//			World->SpawnActor<APaintball_LoGiudiceProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+	//		}
+	//	}
+	//}
+
+
+	//Line trace from first person camera component
+	FHitResult HitResult;
+	FVector StartLocation = FirstPersonCameraComponent->GetComponentLocation();
+	FRotator Direction = FirstPersonCameraComponent->GetComponentRotation();
+	FVector EndLocation = StartLocation + Direction.Vector() * 10000;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility, QueryParams)) {
+		TArray <UStaticMeshComponent*> StaticMeshComponents = TArray <UStaticMeshComponent*>();
+		AActor* HitActor = HitResult.GetActor();
+		if (NULL != HitActor) {
+			HitActor->GetComponents <UStaticMeshComponent>(StaticMeshComponents);
+			for (int32 i = 0; i < StaticMeshComponents.Num(); i++) {
+				UStaticMeshComponent * CurrentStaticMeshPtr = StaticMeshComponents[i];
+				CurrentStaticMeshPtr->SetMaterial(0, MaterialToApplyToClickedObject);
+				UMaterialInstanceDynamic* MID = CurrentStaticMeshPtr->CreateAndSetMaterialInstanceDynamic(0);
+				UTexture* CastedRenderTarget = Cast <UTexture>(RenderTarget);
+				MID->SetTextureParameterValue("InputTexture", CastedRenderTarget);
 			}
 		}
 	}
+
+
+
 
 	// try and play the sound if specified
 	if (FireSound != NULL)
